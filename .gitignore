@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+TestResults/
+coverage*/
+
+.env
+appsettings.Development.json
+!src/**/appsettings.Development.json.example
