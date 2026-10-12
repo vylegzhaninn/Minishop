@@ -63,7 +63,3 @@ src/Orders/Orders.Api       эндпоинты, gRPC-сервис, DI, healthche
 src/Analytics/Analytics.Worker    Kafka-консьюмер, запись в ClickHouse, API статистики
 tests/Domain.Tests          юнит-тесты домена
 ```
-
-## Замечания
-
-Пароли для разработки зашиты в `docker-compose.yml`. Авторизации нет. Это демо-код, не продакшн. Что добавил бы дальше: idempotency-ключи на `POST /orders`, keyset-пагинацию, Avro со schema registry, трейсы OpenTelemetry.
