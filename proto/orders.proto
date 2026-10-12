@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option csharp_namespace = "MiniShop.Orders.Grpc";
+
+package minishop.orders.v1;
+
+service OrderService {
+  rpc GetOrder (GetOrderRequest) returns (GetOrderResponse);
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message GetOrderResponse {
+  string order_id = 1;
+  string customer_id = 2;
+  string status = 3;
+  int64 total_minor = 4;
+  string currency = 5;
+  int32 items_count = 6;
+}
