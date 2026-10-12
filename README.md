@@ -1,27 +1,27 @@
 # Minishop
 
-Small microservices pet project in .NET 8. Orders service with Postgres outbox to Kafka, Redis cache and gRPC, plus an analytics worker that sinks events into ClickHouse.
+Небольшой пет-проект на микросервисах в .NET 8. Сервис заказов с outbox в Postgres, Kafka, кэшем в Redis и gRPC, плюс воркер аналитики, который складывает события в ClickHouse.
 
-Made as a portfolio piece for a backend internship application.
+Сделан как портфолио для заявки на стажировку backend-разработчиком.
 
-## Stack
+## Стек
 
 - .NET 8, ASP.NET Core Minimal API, EF Core, gRPC
-- PostgreSQL 16, Redis 7, Kafka (KRaft mode), ClickHouse
+- PostgreSQL 16, Redis 7, Kafka (режим KRaft), ClickHouse
 - Serilog, HealthChecks, Docker Compose
 
-## Services
+## Сервисы
 
-- `Orders.Api` (`:8080` REST, `:8081` gRPC). Creates orders in Postgres, serves reads with a Redis cache, publishes `order.created` to Kafka through a transactional outbox.
-- `Analytics.Worker` (`:8082`). Consumes `orders.events`, appends them to ClickHouse, exposes `/stats/orders-by-day`.
+- `Orders.Api` (`:8080` REST, `:8081` gRPC). Создает заказы в Postgres, отдает чтение через кэш в Redis, публикует `order.created` в Kafka через транзакционный outbox.
+- `Analytics.Worker` (`:8082`). Читает `orders.events`, дописывает их в ClickHouse, отдает `/stats/orders-by-day`.
 
-## Run
+## Запуск
 
 ```bash
 docker compose up --build
 ```
 
-Create an order:
+Создать заказ:
 
 ```bash
 curl -X POST http://localhost:8080/orders \
@@ -29,15 +29,15 @@ curl -X POST http://localhost:8080/orders \
   -d '{"customerId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","items":[{"sku":"coffee-250","qty":2,"price":349}]}'
 ```
 
-Check the stats after a few seconds:
+Проверить статистику через несколько секунд:
 
 ```bash
 curl 'http://localhost:8082/stats/orders-by-day?days=7'
 ```
 
-Swagger: `http://localhost:8080/swagger`. Health: `/health` on both services.
+Swagger: `http://localhost:8080/swagger`. Healthcheck: `/health` на обоих сервисах.
 
-Local run without Docker images (infra still from compose):
+Запуск без Docker-образов (инфра все равно из compose):
 
 ```bash
 docker compose up -d postgres redis kafka clickhouse
@@ -45,27 +45,27 @@ dotnet run --project src/Orders/Orders.Api
 dotnet run --project src/Analytics/Analytics.Worker
 ```
 
-## How it works
+## Как устроено
 
-1. `POST /orders` inserts the order and an outbox row in one Postgres transaction. No dual write to Kafka.
-2. A background publisher sends unsent outbox rows to topic `orders.events` with key = order id, so events of one order stay ordered in a partition.
-3. `GET /orders/{id}` checks Redis first, falls back to Postgres on miss. Delivery is at-least-once, so the analytics side dedups on `event_id`.
-4. The worker batches events into ClickHouse table `order_events` (`ReplacingMergeTree`, partitioned by month) and aggregates stats with plain SQL.
+1. `POST /orders` кладет заказ и строку outbox в одной транзакции Postgres. Двойной записи в Kafka нет.
+2. Фоновый паблишер отправляет неотправленные строки outbox в топик `orders.events` с ключом = id заказа, поэтому события одного заказа лежат в партиции по порядку.
+3. `GET /orders/{id}` сначала смотрит в Redis, при промахе идет в Postgres. Доставка at-least-once, поэтому сторона аналитики дедуплицирует по `event_id`.
+4. Воркер пачками пишет события в таблицу ClickHouse `order_events` (`ReplacingMergeTree`, партиции по месяцам), статистику считает обычным SQL.
 
-Kafka message fields: `eventId`, `eventType`, `orderId`, `customerId`, `totalMinor`, `currency`, `occurredAt`. Both services keep their own copy of the schema. The gRPC contract lives in `proto/orders.proto` and covers sync order lookups between services.
+Поля сообщения в Kafka: `eventId`, `eventType`, `orderId`, `customerId`, `totalMinor`, `currency`, `occurredAt`. У каждого сервиса своя копия схемы. gRPC-контракт лежит в `proto/orders.proto` и покрывает синхронные запросы заказов между сервисами.
 
-## Layout
+## Структура
 
 ```
-proto/                      gRPC contract
-src/Shared/SharedKernel     Result type, Entity base
-src/Orders/Orders.Domain    Order aggregate, value objects, domain events
-src/Orders/Orders.Infrastructure  EF mappings, outbox, Redis decorator, Kafka producer
-src/Orders/Orders.Api       endpoints, gRPC service, DI, healthchecks
-src/Analytics/Analytics.Worker    Kafka consumer, ClickHouse sink, stats API
-tests/Domain.Tests          unit tests for the domain
+proto/                      gRPC-контракт
+src/Shared/SharedKernel     тип Result, базовый Entity
+src/Orders/Orders.Domain    агрегат Order, value objects, доменные события
+src/Orders/Orders.Infrastructure  маппинги EF, outbox, Redis-декоратор, Kafka-продюсер
+src/Orders/Orders.Api       эндпоинты, gRPC-сервис, DI, healthcheck
+src/Analytics/Analytics.Worker    Kafka-консьюмер, запись в ClickHouse, API статистики
+tests/Domain.Tests          юнит-тесты домена
 ```
 
-## Notes
+## Замечания
 
-Dev passwords are hardcoded in `docker-compose.yml`. There is no auth. This is demo code, not production ready. Things I would add next: idempotency keys on `POST /orders`, keyset pagination, Avro with schema registry, OpenTelemetry traces.
+Пароли для разработки зашиты в `docker-compose.yml`. Авторизации нет. Это демо-код, не продакшн. Что добавил бы дальше: idempotency-ключи на `POST /orders`, keyset-пагинацию, Avro со schema registry, трейсы OpenTelemetry.
